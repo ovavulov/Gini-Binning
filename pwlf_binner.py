@@ -111,16 +111,30 @@ class GiniBinner(object):
         
                 else:
                     opt_thresholds = sorted(thresholds[1:-1])
+		
+                opt_thresholds = sorted(set(opt_thresholds))
 
                 def transform(x):
                     if np.isnan(x):
                         return 0
                     for i in reversed(range(len(opt_thresholds))):
-                        if x >= opt_thresholds[i]:
-                            return i+2
+                        if i > 0:
+                            if x >= opt_thresholds[i]:
+                                return i+2
+                        else:
+                            if x > opt_thresholds[i]:
+                                return i+2                            
                     return 1
 
                 tdf['woe_%s' % feature] = X[feature].apply(lambda x: transform(x))
+                a = np.unique(tdf['woe_%s' % feature])
+                while list(a) != list(range(1, 2+len(opt_thresholds))) and list(a) != list(range(2+len(opt_thresholds))):
+                    for i in range(2, self.max_bins):
+                        if i not in a:
+                            del opt_thresholds[i-1]
+                            tdf['woe_%s' % feature] = X[feature].apply(lambda x: transform(x))
+                            a = np.unique(tdf['woe_%s' % feature])  
+                            break
 
                 q = 0
                 if not big_na_part and len(df_na) > 0:
@@ -131,6 +145,8 @@ class GiniBinner(object):
                     tdf['woe_%s' % feature] = tdf['woe_%s' % feature].apply(lambda x: q if x==0 else x)
 
                 woe_iv = {'woe':{}, 'iv': 0}
+                bin_volume = tdf.groupby(by='woe_%s' % feature).count().iloc[:,0]
+                target_rate = tdf.groupby(by='woe_%s' % feature)['target'].mean()
                 counter = tdf.groupby(by='woe_%s' % feature)['target'].value_counts()
 
                 for i in np.unique(tdf['woe_%s' % feature]):
@@ -168,9 +184,11 @@ class GiniBinner(object):
                 gini = abs(roc_auc_score(tdf['target'], tdf['woe_%s' % feature])*2 - 1)
 
                 self.report[feature] = {'opt_thresholds': opt_thresholds,
+                                        'Result bins': a,
+                                        'NaN bin': q,
                                         'woe': woe_iv['woe'],
-                                        'a': a,
-                                        'q': q,
+                                        'target_rate': {i: target_rate[i] for i in a},
+                                        'bin_volume': {i: bin_volume[i] for i in a},
                                         'iv': woe_iv['iv'],
                                         'gini': gini}
             except:
@@ -197,8 +215,12 @@ class GiniBinner(object):
             if np.isnan(x):
                 return 0
             for i in reversed(range(len(opt_thresholds))):
-                if x >= opt_thresholds[i]:
-                    return i+2
+                if i > 0:
+                    if x >= opt_thresholds[i]:
+                        return i+2
+                else:
+                    if x > opt_thresholds[i]:
+                        return i+2
             return 1
         
         for feature in tqdm(X.columns):
@@ -206,15 +228,15 @@ class GiniBinner(object):
             if feature not in self.with_error and feature not in self.na_feat:
             
                 def woe_transform(x):
-                    for i in self.report[feature]['a']:
+                    for i in self.report[feature]['Result bins']:
                         if x == i:
                             return woe[i]
 
                 opt_thresholds = self.report[feature]['opt_thresholds']
                 woe = self.report[feature]['woe']
-                q = self.report[feature]['q']
+                q = self.report[feature]['NaN bin']
                 tdf['woe_%s' % feature] = X[feature].apply(lambda x: transform(x))
                 tdf['woe_%s' % feature] = tdf['woe_%s' % feature].apply(lambda x: q if x==0 else x)
                 tdf['woe_%s' % feature] = tdf['woe_%s' % feature].apply(lambda x: woe_transform(x))
             
-        return tdf   
+        return tdf.dropna()
