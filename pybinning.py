@@ -127,7 +127,7 @@ class simplex_binner(object):
                         k = int(points[i]); l = int(points[i+1])
                         tpr_0 = tpr[k]; fpr_0 = fpr[k]
                         tpr_1 = tpr[l]; fpr_1 = fpr[l]
-                        k = (tpr_1 - tpr_0)/(fpr_1 - fpr_0)
+                        k = (tpr_1 - tpr_0)/(fpr_1 - fpr_0 + 1e-20)
                         b = tpr_1 - k*fpr_1
                         for j in range(int(points[i]+1), int(points[i+1])):
                             tpr_appr = k*fpr[j] + b
