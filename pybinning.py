@@ -256,16 +256,16 @@ class simplex_binner(object):
         tdf = pd.DataFrame(index=X.index)
         
         def transform(x):
-        	if np.isnan(x):
-			return 0
-		for i in reversed(range(len(opt_thresholds))):
-			if i > 0:
-				if x >= opt_thresholds[i]:
-					return i+2
-			else:
-				if x > opt_thresholds[i]:
-					return i+2                            
-		return 1
+            if np.isnan(x):
+		return 0
+            for i in reversed(range(len(opt_thresholds))):
+                if i > 0:
+                    if x >= opt_thresholds[i]:
+                        return i+2
+                else:
+                    if x > opt_thresholds[i]:
+                        return i+2                            
+            return 1
         
         for feature in tqdm(X.columns):
             
