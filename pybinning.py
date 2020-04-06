@@ -15,13 +15,16 @@ class simplex_binner(object):
     na_feat = []
     with_error = []
     
-    def __init__(self, max_bins = 6, min_size = 0.05, n_iter = 100, depth = 50, starts_from = 100, full = False):
+    def __init__(
+      self, max_bins = 6, min_size = 0.05, n_iter = 100, depth = 50
+      , starts_from = 100, full = False, random_state = 19):
         self.max_bins = max_bins
         self.min_size = min_size
         self.n_iter = n_iter
         self.depth = depth
         self.starts_from = starts_from
         self.full = full
+        self.random_state = random_state
         self.report = {}
         self.na_feat = []
         self.with_error = []
@@ -37,6 +40,14 @@ class simplex_binner(object):
         import scipy as sp
         from tqdm import tqdm, tqdm_notebook
         from sklearn.metrics import roc_curve, roc_auc_score
+
+        np.random.seed(self.random_state)
+
+        try:
+          import warnings
+          warnings.filterwarnings('ignore')
+        except ModuleNotFoundError:
+          pass
         
         tdf = pd.DataFrame(index=y.index, columns=['target'])
         tdf['target'] = y
@@ -252,6 +263,12 @@ class simplex_binner(object):
         import scipy as sp
         from tqdm import tqdm, tqdm_notebook
         from sklearn.metrics import roc_curve, roc_auc_score
+
+        try:
+          import warnings
+          warnings.filterwarnings('ignore')
+        except ModuleNotFoundError:
+          pass        
         
         tdf = pd.DataFrame(index=X.index)
         
@@ -299,11 +316,14 @@ class pwlf_binner(object):
     na_feat = []
     with_error = []
     
-    def __init__(self, max_bins = 6, min_size = 0.05, fast = False, **kwargs):
+    def __init__(
+      self, max_bins = 6, min_size = 0.05, fast = False
+      , random_state = 19, **kwargs):
         self.max_bins = max_bins
         self.min_size = min_size
         self.kwargs = kwargs
         self.fast = fast
+        self.random_state = random_state
         self.report = {}
         self.na_feat = []
         self.with_error = []
@@ -321,7 +341,15 @@ class pwlf_binner(object):
         from tqdm import tqdm
         import pwlf
         from sklearn.metrics import roc_curve, roc_auc_score
-        
+
+        np.random.seed(self.random_state)
+
+        try:
+          import warnings
+          warnings.filterwarnings('ignore')
+        except ModuleNotFoundError:
+          pass
+
         tdf = pd.DataFrame(index=X.index, columns=['target'])
         tdf['target'] = y
         
@@ -500,7 +528,13 @@ class pwlf_binner(object):
         import pandas as pd
         import numpy as np
         from tqdm import tqdm
-        
+
+        try:
+          import warnings
+          warnings.filterwarnings('ignore')
+        except ModuleNotFoundError:
+          pass
+
         tdf = pd.DataFrame(index=X.index)
         
         def transform(x):
@@ -548,13 +582,16 @@ class hyper_binner(object):
     na_feat = []
     with_error = []
     
-    def __init__(self, max_bins = 6, min_size = 0.05, algo = 'anneal', max_evals = 100, starts_from = 100, full = True):
+    def __init__(
+      self, max_bins = 6, min_size = 0.05, algo = 'anneal', max_evals = 100
+      , starts_from = 100, full = True, random_state = 19):
         self.max_bins = max_bins
         self.min_size = min_size
         self.algo = algo
         self.max_evals = max_evals
         self.starts_from = starts_from
         self.full = full
+        self.random_state = random_state
         self.report = {}
         self.na_feat = []
         self.with_error = []
@@ -574,7 +611,13 @@ class hyper_binner(object):
           from hyperopt import fmin, hp, tpe, atpe, rand, anneal, Trials
         except ImportError:
           from hyperopt import fmin, hp, tpe, rand, anneal, Trials
-        
+
+        try:
+          import warnings
+          warnings.filterwarnings('ignore')
+        except ModuleNotFoundError:
+          pass 
+
         tdf = pd.DataFrame(index=y.index, columns=['target'])
         tdf['target'] = y
         
@@ -695,6 +738,7 @@ class hyper_binner(object):
                         , algo= algorithm
                         , max_evals=self.max_evals
                         , verbose = False
+                        , rstate= np.random.RandomState(self.random_state)
                     )
                     
                     opt_idx = sorted([int(x[1]) for x in best.items()])
@@ -799,7 +843,13 @@ class hyper_binner(object):
         import pandas as pd
         import numpy as np
         from tqdm import tqdm
-        
+
+        try:
+          import warnings
+          warnings.filterwarnings('ignore')
+        except ModuleNotFoundError:
+          pass
+
         tdf = pd.DataFrame(index=X.index)
         
         def transform(x):
@@ -843,7 +893,7 @@ class optuna_binner(object):
     
     def __init__(
       self, max_bins = 6, min_size = 0.05, sampler=None, pruner=None, n_jobs = 1
-      , n_trials = 100, starts_from = 100, full = True
+      , n_trials = 100, starts_from = 100, full = True, random_state = 19
       ):
         self.max_bins = max_bins
         self.min_size = min_size
@@ -853,6 +903,7 @@ class optuna_binner(object):
         self.pruner = pruner
         self.starts_from = starts_from
         self.full = full
+        self.random_state = random_state
         self.report = {}
         self.na_feat = []
         self.with_error = []
@@ -868,7 +919,13 @@ class optuna_binner(object):
         from tqdm import tqdm
         from sklearn.metrics import roc_curve, roc_auc_score
         import optuna
-        
+
+        try:
+          import warnings
+          warnings.filterwarnings('ignore')
+        except ModuleNotFoundError:
+          pass
+
         tdf = pd.DataFrame(index=y.index, columns=['target'])
         tdf['target'] = y
         
@@ -977,7 +1034,10 @@ class optuna_binner(object):
                             br_point.append(params['point_%i' % (i+1)])
                         return get_loss(sorted(br_point))
                     
-                    study = optuna.create_study(sampler=self.sampler, pruner=self.pruner)
+                    study = optuna.create_study(
+                      sampler = optuna.samplers.TPESampler(seed=self.random_state) if self.sampler is None else self.sampler
+                      , pruner=self.pruner
+                      )
                     optuna.logging.disable_default_handler()
                     study.optimize(score, n_trials=self.n_trials, n_jobs=self.n_jobs)
                     
@@ -1083,7 +1143,13 @@ class optuna_binner(object):
         import pandas as pd
         import numpy as np
         from tqdm import tqdm
-        
+
+        try:
+          import warnings
+          warnings.filterwarnings('ignore')
+        except ModuleNotFoundError:
+          pass
+
         tdf = pd.DataFrame(index=X.index)
         
         def transform(x):
