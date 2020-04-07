@@ -17,14 +17,15 @@ class simplex_binner(object):
     
     def __init__(
       self, max_bins = 6, min_size = 0.05, n_iter = 100, depth = 50
-      , starts_from = 100, full = False, random_state = 19):
+      , starts_from = 100, fast = True, random_state = 19, verbose = True):
         self.max_bins = max_bins
         self.min_size = min_size
         self.n_iter = n_iter
         self.depth = depth
         self.starts_from = starts_from
-        self.full = full
+        self.fast = fast
         self.random_state = random_state
+        self.verbose = verbose
         self.report = {}
         self.na_feat = []
         self.with_error = []
@@ -55,7 +56,7 @@ class simplex_binner(object):
         df_good = tdf['target'].value_counts()[0]
         df_bad = tdf['target'].value_counts()[1]
         
-        for feature in tqdm(X.columns):
+        for feature in tqdm(X.columns) if self.verbose else X.columns:
             
             try:
             
@@ -77,7 +78,7 @@ class simplex_binner(object):
 
                 t = df['target']; x = df[feature]
                 
-                if x.nunique() > self.starts_from and self.full == False:
+                if x.nunique() > self.starts_from and self.fast == True:
                     data_ = pd.concat([t, x], axis=1).sort_values(by=feature, ascending=False).reset_index(drop=True)
                     bins_num = self.starts_from
                     a = np.array([])
@@ -160,7 +161,7 @@ class simplex_binner(object):
                             i += 1
                         except:
                             continue
-                    if x.nunique() > self.starts_from and self.full == False:
+                    if x.nunique() > self.starts_from and self.fast == True:
                         opt_thresholds = sorted(data_[data_.Bin==int(i)][feature].mean() for i in sorted(thresholds[int(i)] for i in s_opt.x))
                     else:
                         opt_thresholds = sorted(thresholds[int(i)] for i in s_opt.x)
@@ -284,7 +285,7 @@ class simplex_binner(object):
                         return i+2                            
             return 1
         
-        for feature in tqdm(X.columns):
+        for feature in tqdm(X.columns) if self.verbose else X.columns:
             
             if feature not in self.with_error and feature not in self.na_feat:
             
@@ -317,13 +318,14 @@ class pwlf_binner(object):
     with_error = []
     
     def __init__(
-      self, max_bins = 6, min_size = 0.05, fast = False
-      , random_state = 19, **kwargs):
+      self, max_bins = 6, min_size = 0.05, fast = True
+      , random_state = 19, verbose = True, **kwargs):
         self.max_bins = max_bins
         self.min_size = min_size
         self.kwargs = kwargs
         self.fast = fast
         self.random_state = random_state
+        self.verbose = verbose
         self.report = {}
         self.na_feat = []
         self.with_error = []
@@ -356,7 +358,7 @@ class pwlf_binner(object):
         df_good = tdf['target'].value_counts()[0]
         df_bad = tdf['target'].value_counts()[1]
         
-        for feature in tqdm(X.columns):
+        for feature in tqdm(X.columns) if self.verbose else X.columns:
             
             try:
             
@@ -549,7 +551,7 @@ class pwlf_binner(object):
                         return i+2                            
             return 1
         
-        for feature in tqdm(X.columns):
+        for feature in tqdm(X.columns) if self.verbose else X.columns:
             
             if feature not in self.with_error and feature not in self.na_feat:
             
@@ -583,15 +585,16 @@ class hyper_binner(object):
     with_error = []
     
     def __init__(
-      self, max_bins = 6, min_size = 0.05, algo = 'anneal', max_evals = 100
-      , starts_from = 100, full = True, random_state = 19):
+      self, max_bins = 6, min_size = 0.05, method = 'anneal', n_iter = 100
+      , starts_from = 100, fast = False, random_state = 19, verbose = True):
         self.max_bins = max_bins
         self.min_size = min_size
-        self.algo = algo
-        self.max_evals = max_evals
+        self.method = method
+        self.n_iter = n_iter
         self.starts_from = starts_from
-        self.full = full
+        self.fast = fast
         self.random_state = random_state
+        self.verbose = verbose
         self.report = {}
         self.na_feat = []
         self.with_error = []
@@ -624,7 +627,7 @@ class hyper_binner(object):
         df_good = tdf['target'].value_counts()[0]
         df_bad = tdf['target'].value_counts()[1]
         
-        for feature in tqdm(X.columns):
+        for feature in tqdm(X.columns) if self.verbose else X.columns:
             
             try:
             
@@ -646,7 +649,7 @@ class hyper_binner(object):
 
                 t = df['target']; x = df[feature]
                 
-                if x.nunique() > self.starts_from and self.full == False:
+                if x.nunique() > self.starts_from and self.fast == True:
                     data_ = pd.concat([t, x], axis=1).sort_values(by=feature, ascending=False).reset_index(drop=True)
                     bins_num = self.starts_from
                     a = np.array([])
@@ -724,26 +727,26 @@ class hyper_binner(object):
                     
                     space = {'point_%i' % (i+1): hp.quniform('point_%i' % (i+1), 1, len(tpr)-2, 1) for i in range(self.max_bins-2)}
 
-                    if self.algo == 'tpe':
+                    if self.method == 'tpe':
                         algorithm = tpe.suggest
-                    elif self.algo == 'atpe':
+                    elif self.method == 'atpe':
                         algorithm = atpe.suggest
-                    elif self.algo == 'anneal':
+                    elif self.method == 'anneal':
                         algorithm = anneal.suggest
-                    elif self.algo == 'rand':
+                    elif self.method == 'rand':
                         algorithm = rand.suggest
                     
                     best = fmin(
                         score, space
                         , algo= algorithm
-                        , max_evals=self.max_evals
+                        , max_evals=self.n_iter
                         , verbose = False
                         , rstate= np.random.RandomState(self.random_state)
                     )
                     
                     opt_idx = sorted([int(x[1]) for x in best.items()])
                     
-                    if x.nunique() > self.starts_from and self.full == False:
+                    if x.nunique() > self.starts_from and self.fast == True:
                         opt_thresholds = sorted(data_[data_.Bin==int(i)][feature].mean() for i in sorted(thresholds[int(i)] for i in opt_idx))
                     else:
                         opt_thresholds = sorted(thresholds[int(i)] for i in opt_idx)
@@ -864,7 +867,7 @@ class hyper_binner(object):
                         return i+2                            
             return 1
         
-        for feature in tqdm(X.columns):
+        for feature in tqdm(X.columns) if self.verbose else X.columns:
             
             if feature not in self.with_error and feature not in self.na_feat:
             
@@ -893,17 +896,18 @@ class optuna_binner(object):
     
     def __init__(
       self, max_bins = 6, min_size = 0.05, sampler=None, pruner=None, n_jobs = 1
-      , n_trials = 100, starts_from = 100, full = True, random_state = 19
+      , n_iter = 100, starts_from = 100, fast = True, random_state = 19, verbose = True
       ):
         self.max_bins = max_bins
         self.min_size = min_size
         self.n_jobs = n_jobs
-        self.n_trials = n_trials
+        self.n_iter = n_iter
         self.sampler = sampler
         self.pruner = pruner
         self.starts_from = starts_from
-        self.full = full
+        self.fast = fast
         self.random_state = random_state
+        self.verbose = verbose
         self.report = {}
         self.na_feat = []
         self.with_error = []
@@ -932,7 +936,7 @@ class optuna_binner(object):
         df_good = tdf['target'].value_counts()[0]
         df_bad = tdf['target'].value_counts()[1]
         
-        for feature in tqdm(X.columns):
+        for feature in tqdm(X.columns) if self.verbose else X.columns:
             
             try:
             
@@ -954,7 +958,7 @@ class optuna_binner(object):
 
                 t = df['target']; x = df[feature]
                 
-                if x.nunique() > self.starts_from and self.full == False:
+                if x.nunique() > self.starts_from and self.fast == True:
                     data_ = pd.concat([t, x], axis=1).sort_values(by=feature, ascending=False).reset_index(drop=True)
                     bins_num = self.starts_from
                     a = np.array([])
@@ -1039,11 +1043,11 @@ class optuna_binner(object):
                       , pruner=self.pruner
                       )
                     optuna.logging.disable_default_handler()
-                    study.optimize(score, n_trials=self.n_trials, n_jobs=self.n_jobs)
+                    study.optimize(score, n_trials=self.n_iter, n_jobs=self.n_jobs)
                     
                     opt_idx = sorted([int(x[1]) for x in study.best_params.items()])
                     
-                    if x.nunique() > self.starts_from and self.full == False:
+                    if x.nunique() > self.starts_from and self.fast == True:
                         opt_thresholds = sorted(data_[data_.Bin==int(i)][feature].mean() for i in sorted(thresholds[int(i)] for i in opt_idx))
                     else:
                         opt_thresholds = sorted(thresholds[int(i)] for i in opt_idx)
@@ -1164,7 +1168,7 @@ class optuna_binner(object):
                         return i+2                            
             return 1
         
-        for feature in tqdm(X.columns):
+        for feature in tqdm(X.columns) if self.verbose else X.columns:
             
             if feature not in self.with_error and feature not in self.na_feat:
             
