@@ -144,7 +144,7 @@ class simplex_binner(object):
                         for j in range(int(points[i]+1), int(points[i+1])):
                             tpr_appr = k*fpr[j] + b
                             loss += abs(tpr[j] - tpr_appr)
-                    return loss
+                    return loss/len(fpr)
 
                 if len(tpr) > self.max_bins-1:
 
@@ -165,8 +165,11 @@ class simplex_binner(object):
                         opt_thresholds = sorted(data_[data_.Bin==int(i)][feature].mean() for i in sorted(thresholds[int(i)] for i in s_opt.x))
                     else:
                         opt_thresholds = sorted(thresholds[int(i)] for i in s_opt.x)
+                    opt_idxs = [int(i) for i in s_opt.x]
+                    loss = s_opt.fun
                 else:
                     s_opt = None
+                    loss = None
                     opt_thresholds = sorted(thresholds[1:-1])
                    
                 opt_thresholds = sorted(set(opt_thresholds))
@@ -247,7 +250,8 @@ class simplex_binner(object):
                                         'target_rate': {i: target_rate[i] for i in a},
                                         'bin_volume': {i: bin_volume[i] for i in a},
                                         'iv': woe_iv['iv'],
-                                        'gini': gini}
+                                        'gini': gini,
+                                        'loss': loss}
             except:
                 self.with_error.append(feature)
                 continue
@@ -421,6 +425,20 @@ class pwlf_binner(object):
                     for i in range(-j-1):
                         tpr, fpr, thresholds = np.delete(tpr, -2), np.delete(fpr, -2), np.delete(thresholds, -2)
 
+                def get_loss(break_point):
+                    points = sorted(np.insert(break_point, 0, values=[0, len(tpr)-1]))
+                    loss = 0
+                    for i in range(self.max_bins-1):
+                        k = int(points[i]); l = int(points[i+1])
+                        tpr_0 = tpr[k]; fpr_0 = fpr[k]
+                        tpr_1 = tpr[l]; fpr_1 = fpr[l]
+                        k = (tpr_1 - tpr_0)/(fpr_1 - fpr_0 + 1e-20)
+                        b = tpr_1 - k*fpr_1
+                        for j in range(int(points[i]+1), int(points[i+1])):
+                            tpr_appr = k*fpr[j] + b
+                            loss += abs(tpr[j] - tpr_appr)
+                    return loss/len(fpr)                          
+                
                 if len(tpr) > self.max_bins-1:
 
                     lfit = pwlf.PiecewiseLinFit(fpr[1:-1], tpr[1:-1])
@@ -432,8 +450,9 @@ class pwlf_binner(object):
                     for i in range(1, self.max_bins - 1):
                         opt_idxs.append(np.argmin(abs(fpr - res[i])))
                     opt_thresholds = sorted(thresholds[opt_idxs])
-        
+                    loss = get_loss(opt_idxs)
                 else:
+                    loss = None
                     opt_thresholds = sorted(thresholds[1:-1])
 		
                 opt_thresholds = sorted(set(opt_thresholds))
@@ -514,7 +533,8 @@ class pwlf_binner(object):
                                         'target_rate': {i: target_rate[i] for i in a},
                                         'bin_volume': {i: bin_volume[i] for i in a},
                                         'iv': woe_iv['iv'],
-                                        'gini': gini}
+                                        'gini': gini, 
+                                        'loss': loss}
             except:
                 self.with_error.append(feature)
                 continue
@@ -715,7 +735,7 @@ class hyper_binner(object):
                         for j in range(int(points[i]+1), int(points[i+1])):
                             tpr_appr = k*fpr[j] + b
                             loss += abs(tpr[j] - tpr_appr)
-                    return loss
+                    return loss/len(fpr)
 
                 if len(tpr) > self.max_bins-1:
 
@@ -744,13 +764,15 @@ class hyper_binner(object):
                         , rstate= np.random.RandomState(self.random_state)
                     )
                     
-                    opt_idx = sorted([int(x[1]) for x in best.items()])
+                    opt_idxs = sorted([int(x[1]) for x in best.items()])
                     
                     if x.nunique() > self.starts_from and self.fast == True:
-                        opt_thresholds = sorted(data_[data_.Bin==int(i)][feature].mean() for i in sorted(thresholds[int(i)] for i in opt_idx))
+                        opt_thresholds = sorted(data_[data_.Bin==int(i)][feature].mean() for i in sorted(thresholds[int(i)] for i in opt_idxs))
                     else:
-                        opt_thresholds = sorted(thresholds[int(i)] for i in opt_idx)
+                        opt_thresholds = sorted(thresholds[int(i)] for i in opt_idxs)
+                    loss = get_loss(opt_idxs)
                 else:
+                    loss = None
                     opt_thresholds = sorted(thresholds[1:-1])
                    
                 opt_thresholds = sorted(set(opt_thresholds))
@@ -831,7 +853,8 @@ class hyper_binner(object):
                                         'target_rate': {i: target_rate[i] for i in a},
                                         'bin_volume': {i: bin_volume[i] for i in a},
                                         'iv': woe_iv['iv'],
-                                        'gini': gini}
+                                        'gini': gini, 
+                                        'loss': loss}
             except:
                 self.with_error.append(feature)
                 continue
@@ -884,6 +907,9 @@ class hyper_binner(object):
                 tdf['woe_%s' % feature] = tdf['woe_%s' % feature].apply(lambda x: woe_transform(x))
             
         return tdf.dropna()
+
+
+#################################################################################
 
 #THE FOURTH GROUP OF APPROACHES
 #optuna_binner is based on optuna library 
@@ -1024,7 +1050,7 @@ class optuna_binner(object):
                         for j in range(int(points[i]+1), int(points[i+1])):
                             tpr_appr = k*fpr[j] + b
                             loss += abs(tpr[j] - tpr_appr)
-                    return loss
+                    return loss/len(fpr)
 
                 if len(tpr) > self.max_bins-1:
 
@@ -1045,13 +1071,15 @@ class optuna_binner(object):
                     optuna.logging.disable_default_handler()
                     study.optimize(score, n_trials=self.n_iter, n_jobs=self.n_jobs)
                     
-                    opt_idx = sorted([int(x[1]) for x in study.best_params.items()])
+                    opt_idxs = sorted([int(x[1]) for x in study.best_params.items()])
                     
                     if x.nunique() > self.starts_from and self.fast == True:
-                        opt_thresholds = sorted(data_[data_.Bin==int(i)][feature].mean() for i in sorted(thresholds[int(i)] for i in opt_idx))
+                        opt_thresholds = sorted(data_[data_.Bin==int(i)][feature].mean() for i in sorted(thresholds[int(i)] for i in opt_idxs))
                     else:
-                        opt_thresholds = sorted(thresholds[int(i)] for i in opt_idx)
+                        opt_thresholds = sorted(thresholds[int(i)] for i in opt_idxs)
+                    loss = get_loss(opt_idxs)
                 else:
+                    loss = None
                     opt_thresholds = sorted(thresholds[1:-1])
                    
                 opt_thresholds = sorted(set(opt_thresholds))
@@ -1132,7 +1160,8 @@ class optuna_binner(object):
                                         'target_rate': {i: target_rate[i] for i in a},
                                         'bin_volume': {i: bin_volume[i] for i in a},
                                         'iv': woe_iv['iv'],
-                                        'gini': gini}
+                                        'gini': gini, 
+                                        'loss': loss}
             except:
                 self.with_error.append(feature)
                 continue
