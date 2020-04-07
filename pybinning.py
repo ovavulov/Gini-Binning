@@ -598,7 +598,7 @@ class hyper_binner(object):
         self.report = {}
         self.na_feat = []
         self.with_error = []
-        assert self.algo in ['tpe', 'atpe', 'anneal', 'rand']
+        assert self.method in ['tpe', 'atpe', 'anneal', 'rand']
         
     def fit_transform(self, X, y):
         
