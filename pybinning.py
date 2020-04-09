@@ -57,7 +57,7 @@ class simplex_binner(object):
         df_bad = tdf['target'].value_counts()[1]
         
         for feature in tqdm(X.columns) if self.verbose else X.columns:
-            
+                 
             try:
             
                 df = pd.DataFrame(index=y.index, columns=[feature, 'target'])
@@ -161,11 +161,12 @@ class simplex_binner(object):
                             i += 1
                         except:
                             continue
+                    def cure_idx(x): return int(round(min(x, len(tpr)-2) if x > 1 else 1))
                     if x.nunique() > self.starts_from and self.fast == True:
-                        opt_thresholds = sorted(data_[data_.Bin==int(i)][feature].mean() for i in sorted(thresholds[int(i)] for i in s_opt.x))
+                        opt_thresholds = sorted(data_[data_.Bin==int(i)][feature].mean() for i in sorted(thresholds[cure_idx(i)] for i in s_opt.x))
                     else:
-                        opt_thresholds = sorted(thresholds[int(i)] for i in s_opt.x)
-                    opt_idxs = [int(i) for i in s_opt.x]
+                        opt_thresholds = sorted(thresholds[cure_idx(i)] for i in s_opt.x)
+                    opt_idxs = [cure_idx(i) for i in s_opt.x]
                     loss = s_opt.fun
                 else:
                     s_opt = None
