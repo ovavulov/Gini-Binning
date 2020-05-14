@@ -1,4 +1,74 @@
 class GiniBinner(object):
+
+    """
+    This class provides optimal binning algorithm that maximizes Gini score for each input variable. Algorithm uses hyperopt library to build the best piecewise linear approximation of ROC for each variable. It utilizes MAE to estimate resulting fitness.
+    
+
+    PARAMETERS:
+
+    max_bins: int, default=6
+        The highest number of resulting bins for each variable. It mustn't be lower than 2 and upper than the observations number.
+
+    min_size: float, default=0.05
+        The smallest possible size for each bin like a fraction of whole observation number. It's set up by default that every bin must contain at least 5% of all observations. It mustn't be lower than 0.01 and upper than 0.5.
+    
+    method: {'tpe', 'atpe', 'anneal', 'rand'}, default='anneal'
+        Optimization method which is used to build the ROC approximation. This parameter relies on methods that are implemented in hyperopt library.
+    
+    n_iter: int, default=100
+        Iterations amount for optimization algorithm. The more this parameter is, the higher Gini score for this variable you can get and the more time you will spend for it. Varying this param make sure you find optimal time-quality trade-off for your own task.  
+    
+    fast: bool, default=False
+        If it's set on True algorithm performance can be accelerated by preliminary equal-size binning execution (with equal amount of observations into each bin). You should tune param 'starts_from' to make this feature suitable for your binning task.
+
+    starts_from: int, default=100
+        Ignored when fast=False. Otherwise it defines numer of resulting bins after preliminary equal-size binning. The lower the value is, the faster overall performance is and the less precise inner ROC approximation is. Use it to tune time-quality trade-off for your task.   
+    
+    random_state: int, default=None
+        Random seed for results reproducibility.
+
+    verbose: bool, default=True
+        Set on True to track algorithm execution with progress bar.
+    
+
+    ATTRIBUTES:
+
+    report: dict
+        Report with binning results and useful statistics for each variable:
+            - opt_thresholds: list
+              List of thresholds separating resulting bins
+            - Result bins: list
+              List of bins numbers
+            - NaN bin: int
+              Number of bin with missing values; if it's equal zero missing values are put into separate bin
+            - woe: dict
+              Dictionary which looks like {bin number: WoE value}
+            - target_rate: dict
+              Dictionary which looks like {bin number: fraction of positive examples in bin}
+            - bin_volume: dict
+              Dictionary which looks like {bin number: number of observations in bin}
+            - iv: float
+              Information value for variable
+            - gini: float
+              Gini coefficient for variable
+            - loss: float
+              MAE that was reached after ROC approximation
+
+    na_feat: list
+        List of variables with fraction of not missed values less than 'min_size'
+
+    with_error: list
+        List of variables which weren't binned cause of some error  
+
+
+    EXAMPLE:
+
+    from pybinning import GiniBinning
+    binner = GiniBinner()
+    X_train_binned = binner.fit_transform(X_train, y_train)
+    X_val_binned = binner.transform(X_val)
+
+    """
     
     report = {}
     na_feat = []
@@ -6,7 +76,7 @@ class GiniBinner(object):
     
     def __init__(
       self, max_bins = 6, min_size = 0.05, method = 'anneal', n_iter = 100
-      , starts_from = 100, fast = False, random_state = 19, verbose = True):
+      , fast = False, starts_from = 100, random_state = None, verbose = True):
         self.max_bins = max_bins
         self.min_size = min_size
         self.method = method
@@ -19,11 +89,21 @@ class GiniBinner(object):
         self.na_feat = []
         self.with_error = []
         assert self.method in ['tpe', 'atpe', 'anneal', 'rand']
+        assert type(self.max_bins) is int and self.max_bins >= 2
+        assert type(self.min_size) is float and self.min_size >= 0.01 and self.min_size <= 0.5
+        assert type(self.n_iter) is int and self.n_iter >= 1
+        assert type(self.fast) is bool
+        assert type(self.starts_from) is int and self.starts_from >= 1
+        if self.random_state is None:
+            from random import randint
+            self.random_state = int(randint(1, 1e10))
+        assert type(self.random_state) is int
+        assert type(self.verbose) is bool
+        
         
     def fit_transform(self, X, y):
         
-        self.X = X
-        self.y = y
+        assert self.max_bins <= len(X)
         
         #requirements
         import pandas as pd
@@ -247,7 +327,7 @@ class GiniBinner(object):
                 gini = abs(roc_auc_score(tdf['target'], tdf['woe_%s' % feature])*2 - 1)
 
                 self.report[feature] = {'opt_thresholds': opt_thresholds,
-                                        'Result bins': a,
+                                        'Result bins': list(a),
                                         'NaN bin': q,
                                         'woe': woe_iv['woe'],
                                         'target_rate': {i: target_rate[i] for i in a},
